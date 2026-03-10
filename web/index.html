@@ -410,32 +410,33 @@
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <script type="module">
-    import init, { calc_sole_proprietor, calc_corporate } from './pkg/kaikei_rs.js';
+  <!-- Global app state and functions (non-module, so onclick works immediately) -->
+  <script>
+    var CLIENT_ID = '267211003481-pck8amdusjfedr9gvvlje4uke53ig4lh.apps.googleusercontent.com';
+    var SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+    var tokenClient = null;
+    var accessToken = null;
+    var businessMode = localStorage.getItem('kaikei_business_mode');
+    var lastSoleResult = null;
+    var lastCorpResult = null;
+    var wasmReady = false;
+    var wasmCalcSole = null;
+    var wasmCalcCorp = null;
 
-    await init();
-
-    // ------- Google Auth state (declared early for use in applyBusinessMode) -------
-    const CLIENT_ID = '267211003481-pck8amdusjfedr9gvvlje4uke53ig4lh.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-    let tokenClient;
-    let accessToken = null;
-
-    // ------- Business mode (sole/corp) -------
-    let businessMode = localStorage.getItem('kaikei_business_mode'); // 'sole' or 'corp' or null
+    function fmt(n) {
+      return Number(n).toLocaleString('ja-JP') + '円';
+    }
 
     function applyBusinessMode() {
-      const setupEl = document.getElementById('setup-screen');
-      const mainEl = document.getElementById('main-app');
-      const badgeEl = document.getElementById('user-type-badge');
+      var setupEl = document.getElementById('setup-screen');
+      var mainEl = document.getElementById('main-app');
+      var badgeEl = document.getElementById('user-type-badge');
 
       if (!businessMode) {
-        // No mode selected yet - show setup if logged in, show sole proprietor by default if not
         if (accessToken) {
           setupEl.style.display = 'block';
           mainEl.style.display = 'none';
         } else {
-          // Not logged in: show sole proprietor as default
           setupEl.style.display = 'none';
           mainEl.style.display = 'block';
           document.getElementById('section-sole').classList.add('active');
@@ -459,13 +460,13 @@
       }
     }
 
-    window.selectBusinessMode = function(mode) {
+    function selectBusinessMode(mode) {
       businessMode = mode;
       localStorage.setItem('kaikei_business_mode', mode);
       applyBusinessMode();
-    };
+    }
 
-    window.resetBusinessMode = function() {
+    function resetBusinessMode() {
       businessMode = null;
       localStorage.removeItem('kaikei_business_mode');
       if (accessToken) {
@@ -474,97 +475,71 @@
       } else {
         applyBusinessMode();
       }
-    };
+    }
 
-    // Apply on load
-    applyBusinessMode();
+    function handleSignIn() {
+      if (!tokenClient) {
+        alert('Google認証の準備中です。少し待ってから再度お試しください。');
+        return;
+      }
+      tokenClient.requestAccessToken();
+    }
 
-    // ------- Google Auth -------
-    window.addEventListener('load', () => {
+    function handleSignOut() {
+      if (accessToken) {
+        google.accounts.oauth2.revoke(accessToken);
+      }
+      accessToken = null;
+      document.getElementById('auth-signed-out').style.display = 'block';
+      document.getElementById('auth-signed-in').style.display = 'none';
+      document.getElementById('user-name').textContent = '';
+      document.getElementById('user-avatar').src = '';
+      document.querySelectorAll('.btn-save').forEach(function(b) { b.disabled = true; });
+      applyBusinessMode();
+    }
+
+    function initGoogleAuth() {
       if (typeof google !== 'undefined' && google.accounts) {
         tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: CLIENT_ID,
           scope: SCOPES,
-          callback: (resp) => {
+          callback: function(resp) {
             if (resp.error) return;
             accessToken = resp.access_token;
-            showSignedIn();
-            fetchUserInfo();
-            // If no business mode selected, show setup
+            document.getElementById('auth-signed-out').style.display = 'none';
+            document.getElementById('auth-signed-in').style.display = 'block';
+            document.querySelectorAll('.btn-save').forEach(function(b) { b.disabled = false; });
+            applyBusinessMode();
+            // Fetch user info
+            fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: 'Bearer ' + accessToken },
+            }).then(function(r) { return r.json(); }).then(function(info) {
+              document.getElementById('user-name').textContent = info.name || info.email;
+              if (info.picture) document.getElementById('user-avatar').src = info.picture;
+            }).catch(function() {});
             if (!businessMode) {
               document.getElementById('setup-screen').style.display = 'block';
               document.getElementById('main-app').style.display = 'none';
             }
           },
         });
+      } else {
+        // GIS not loaded yet, retry
+        setTimeout(initGoogleAuth, 200);
       }
-    });
-
-    window.handleSignIn = function() {
-      if (!CLIENT_ID) {
-        alert('Google OAuth Client IDが未設定です。\n管理者にお問い合わせください。');
-        return;
-      }
-      if (tokenClient) tokenClient.requestAccessToken();
-    };
-
-    window.handleSignOut = function() {
-      if (accessToken) {
-        google.accounts.oauth2.revoke(accessToken);
-      }
-      accessToken = null;
-      showSignedOut();
-    };
-
-    function showSignedIn() {
-      document.getElementById('auth-signed-out').style.display = 'none';
-      document.getElementById('auth-signed-in').style.display = 'block';
-      document.querySelectorAll('.btn-save').forEach(b => b.disabled = false);
-      applyBusinessMode();
     }
 
-    function showSignedOut() {
-      document.getElementById('auth-signed-out').style.display = 'block';
-      document.getElementById('auth-signed-in').style.display = 'none';
-      document.getElementById('user-name').textContent = '';
-      document.getElementById('user-avatar').src = '';
-      document.querySelectorAll('.btn-save').forEach(b => b.disabled = true);
-      applyBusinessMode();
-    }
-
-    async function fetchUserInfo() {
+    function calcSole() {
+      if (!wasmReady) { alert('読み込み中...'); return; }
+      var fy = document.getElementById('s-fiscalYear').value;
+      var revenue = BigInt(document.getElementById('s-revenue').value || 0);
+      var expenses = BigInt(document.getElementById('s-expenses').value || 0);
+      var blue = document.getElementById('s-blueReturn').checked;
+      var btype = document.getElementById('s-businessType').value;
       try {
-        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const info = await res.json();
-        document.getElementById('user-name').textContent = info.name || info.email;
-        if (info.picture) document.getElementById('user-avatar').src = info.picture;
-      } catch (e) { /* ignore */ }
-    }
-
-    // ------- Formatting -------
-    function fmt(n) {
-      return Number(n).toLocaleString('ja-JP') + '円';
-    }
-
-    // ------- Store last result for save -------
-    let lastSoleResult = null;
-    let lastCorpResult = null;
-
-    // ------- Sole Proprietor -------
-    window.calcSole = function() {
-      const fy = document.getElementById('s-fiscalYear').value;
-      const revenue = BigInt(document.getElementById('s-revenue').value || 0);
-      const expenses = BigInt(document.getElementById('s-expenses').value || 0);
-      const blue = document.getElementById('s-blueReturn').checked;
-      const btype = document.getElementById('s-businessType').value;
-
-      try {
-        const json = calc_sole_proprietor(fy, revenue, expenses, blue, btype);
-        const r = JSON.parse(json);
+        var json = wasmCalcSole(fy, revenue, expenses, blue, btype);
+        var r = JSON.parse(json);
         lastSoleResult = r;
-
         document.getElementById('s-r-income').textContent = fmt(r.business_income);
         document.getElementById('s-r-deductions').textContent = fmt(r.total_deductions);
         document.getElementById('s-r-taxable').textContent = fmt(r.taxable_income);
@@ -572,159 +547,112 @@
         document.getElementById('s-r-reconstruction').textContent = fmt(r.reconstruction_tax);
         document.getElementById('s-r-resident').textContent = fmt(r.resident_tax);
         document.getElementById('s-r-business').textContent = fmt(r.business_tax);
-
-        const total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
+        var total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
         document.getElementById('s-r-total').textContent = fmt(total);
-
-        const rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) : '0.0';
-        document.getElementById('s-r-rate').textContent = `実効税率: ${rate}%`;
-
+        var rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) : '0.0';
+        document.getElementById('s-r-rate').textContent = '実効税率: ' + rate + '%';
         document.getElementById('s-results').style.display = 'block';
         document.getElementById('s-save-status').textContent = '';
-      } catch (e) {
-        alert('計算エラー: ' + e);
-      }
-    };
+      } catch (e) { alert('計算エラー: ' + e); }
+    }
 
-    // ------- Corporate -------
-    window.calcCorp = function() {
-      const fy = document.getElementById('c-fiscalYear').value;
-      const revenue = BigInt(document.getElementById('c-revenue').value || 0);
-      const expenses = BigInt(document.getElementById('c-expenses').value || 0);
-      const tier = document.getElementById('c-capitalTier').value;
-      const emp50 = document.getElementById('c-employees50').checked;
-
+    function calcCorp() {
+      if (!wasmReady) { alert('読み込み中...'); return; }
+      var fy = document.getElementById('c-fiscalYear').value;
+      var revenue = BigInt(document.getElementById('c-revenue').value || 0);
+      var expenses = BigInt(document.getElementById('c-expenses').value || 0);
+      var tier = document.getElementById('c-capitalTier').value;
+      var emp50 = document.getElementById('c-employees50').checked;
       try {
-        const json = calc_corporate(fy, revenue, expenses, tier, emp50);
-        const r = JSON.parse(json);
+        var json = wasmCalcCorp(fy, revenue, expenses, tier, emp50);
+        var r = JSON.parse(json);
         lastCorpResult = r;
-
         document.getElementById('c-r-taxable').textContent = fmt(r.taxable_income);
         document.getElementById('c-r-corporate').textContent = fmt(r.corporate_tax);
         document.getElementById('c-r-local').textContent = fmt(r.local_corporate_tax);
         document.getElementById('c-r-resident').textContent = fmt(r.corporate_resident_tax);
         document.getElementById('c-r-enterprise').textContent = fmt(r.enterprise_tax);
         document.getElementById('c-r-special').textContent = fmt(r.special_enterprise_tax);
-
-        const total = r.corporate_tax + r.local_corporate_tax + r.corporate_resident_tax
-                    + r.enterprise_tax + r.special_enterprise_tax;
+        var total = r.corporate_tax + r.local_corporate_tax + r.corporate_resident_tax
+                  + r.enterprise_tax + r.special_enterprise_tax;
         document.getElementById('c-r-total').textContent = fmt(total);
-
-        const rate = r.taxable_income > 0 ? (total / r.taxable_income * 100).toFixed(1) : '0.0';
-        document.getElementById('c-r-rate').textContent = `実効税率: ${rate}%`;
-
+        var rate = r.taxable_income > 0 ? (total / r.taxable_income * 100).toFixed(1) : '0.0';
+        document.getElementById('c-r-rate').textContent = '実効税率: ' + rate + '%';
         document.getElementById('c-results').style.display = 'block';
         document.getElementById('c-save-status').textContent = '';
-      } catch (e) {
-        alert('計算エラー: ' + e);
-      }
-    };
+      } catch (e) { alert('計算エラー: ' + e); }
+    }
 
-    // ------- Save to Google Sheets -------
-    const SPREADSHEET_TITLE = 'みんなの経理 税金計算履歴';
+    var SPREADSHEET_TITLE = 'みんなの経理 税金計算履歴';
 
     async function findOrCreateSpreadsheet() {
-      const searchRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(SPREADSHEET_TITLE)}'+and+mimeType='application/vnd.google-apps.spreadsheet'+and+trashed=false&fields=files(id,name)`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+      var searchRes = await fetch(
+        'https://www.googleapis.com/drive/v3/files?q=name%3D%27' + encodeURIComponent(SPREADSHEET_TITLE) + '%27+and+mimeType%3D%27application/vnd.google-apps.spreadsheet%27+and+trashed%3Dfalse&fields=files(id,name)',
+        { headers: { Authorization: 'Bearer ' + accessToken } }
       );
-      const searchData = await searchRes.json();
+      var searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
 
-      if (searchData.files && searchData.files.length > 0) {
-        return searchData.files[0].id;
-      }
-
-      const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+      var createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           properties: { title: SPREADSHEET_TITLE },
           sheets: [
-            {
-              properties: { title: '個人事業主' },
-              data: [{
-                startRow: 0, startColumn: 0,
-                rowData: [{
-                  values: ['日時', '年度', '売上', '経費', '事業所得', '所得控除', '課税所得',
-                           '所得税', '復興税', '住民税', '事業税', '合計', '実効税率']
-                    .map(v => ({ userEnteredValue: { stringValue: v } }))
-                }]
-              }]
-            },
-            {
-              properties: { title: '法人' },
-              data: [{
-                startRow: 0, startColumn: 0,
-                rowData: [{
-                  values: ['日時', '年度', '売上', '経費', '課税所得',
-                           '法人税', '地方法人税', '法人住民税', '法人事業税', '特別法人事業税', '合計', '実効税率']
-                    .map(v => ({ userEnteredValue: { stringValue: v } }))
-                }]
-              }]
-            }
+            { properties: { title: '個人事業主' }, data: [{ startRow: 0, startColumn: 0, rowData: [{ values: ['日時','年度','売上','経費','事業所得','所得控除','課税所得','所得税','復興税','住民税','事業税','合計','実効税率'].map(function(v){return {userEnteredValue:{stringValue:v}};}) }] }] },
+            { properties: { title: '法人' }, data: [{ startRow: 0, startColumn: 0, rowData: [{ values: ['日時','年度','売上','経費','課税所得','法人税','地方法人税','法人住民税','法人事業税','特別法人事業税','合計','実効税率'].map(function(v){return {userEnteredValue:{stringValue:v}};}) }] }] }
           ]
         }),
       });
-      const created = await createRes.json();
+      var created = await createRes.json();
       return created.spreadsheetId;
     }
 
-    window.saveToSheets = async function(type) {
-      if (!accessToken) {
-        alert('Googleにログインしてください');
-        return;
-      }
-
-      const statusEl = document.getElementById(type === 'sole' ? 's-save-status' : 'c-save-status');
+    async function saveToSheets(type) {
+      if (!accessToken) { alert('Googleにログインしてください'); return; }
+      var statusEl = document.getElementById(type === 'sole' ? 's-save-status' : 'c-save-status');
       statusEl.textContent = '保存中...';
-
       try {
-        const spreadsheetId = await findOrCreateSpreadsheet();
-        const now = new Date().toLocaleString('ja-JP');
-        let sheetName, values;
-
+        var spreadsheetId = await findOrCreateSpreadsheet();
+        var now = new Date().toLocaleString('ja-JP');
+        var sheetName, values;
         if (type === 'sole' && lastSoleResult) {
-          const r = lastSoleResult;
-          const total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
-          const rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) + '%' : '0%';
+          var r = lastSoleResult;
+          var total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
+          var rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) + '%' : '0%';
           sheetName = '個人事業主';
-          values = [now, r.fiscal_year, r.revenue, r.expenses, r.business_income,
-                    r.total_deductions, r.taxable_income, r.income_tax,
-                    r.reconstruction_tax, r.resident_tax, r.business_tax, total, rate];
+          values = [now, r.fiscal_year, r.revenue, r.expenses, r.business_income, r.total_deductions, r.taxable_income, r.income_tax, r.reconstruction_tax, r.resident_tax, r.business_tax, total, rate];
         } else if (type === 'corp' && lastCorpResult) {
-          const r = lastCorpResult;
-          const total = r.corporate_tax + r.local_corporate_tax + r.corporate_resident_tax
-                      + r.enterprise_tax + r.special_enterprise_tax;
-          const rate = r.taxable_income > 0 ? (total / r.taxable_income * 100).toFixed(1) + '%' : '0%';
+          var r = lastCorpResult;
+          var total = r.corporate_tax + r.local_corporate_tax + r.corporate_resident_tax + r.enterprise_tax + r.special_enterprise_tax;
+          var rate = r.taxable_income > 0 ? (total / r.taxable_income * 100).toFixed(1) + '%' : '0%';
           sheetName = '法人';
-          values = [now, r.fiscal_year, r.revenue, r.expenses, r.taxable_income,
-                    r.corporate_tax, r.local_corporate_tax, r.corporate_resident_tax,
-                    r.enterprise_tax, r.special_enterprise_tax, total, rate];
+          values = [now, r.fiscal_year, r.revenue, r.expenses, r.taxable_income, r.corporate_tax, r.local_corporate_tax, r.corporate_resident_tax, r.enterprise_tax, r.special_enterprise_tax, total, rate];
         } else {
-          statusEl.textContent = '先に計算を実行してください';
-          return;
+          statusEl.textContent = '先に計算を実行してください'; return;
         }
-
         await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ values: [values] }),
-          }
+          'https://sheets.googleapis.com/v4/spreadsheets/' + spreadsheetId + '/values/' + encodeURIComponent(sheetName) + '!A:Z:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+          { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ values: [values] }) }
         );
-
         statusEl.textContent = 'Google Sheetsに保存しました';
-      } catch (e) {
-        statusEl.textContent = '保存エラー: ' + e.message;
-      }
-    };
+      } catch (e) { statusEl.textContent = '保存エラー: ' + e.message; }
+    }
+
+    // Init on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+      applyBusinessMode();
+      initGoogleAuth();
+    });
+  </script>
+
+  <!-- WASM module (loaded async, sets wasmReady when done) -->
+  <script type="module">
+    import init, { calc_sole_proprietor, calc_corporate } from './pkg/kaikei_rs.js';
+    await init();
+    wasmCalcSole = calc_sole_proprietor;
+    wasmCalcCorp = calc_corporate;
+    wasmReady = true;
   </script>
 </body>
 </html>
