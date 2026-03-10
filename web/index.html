@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>税金計算 | kaikei-rs</title>
+  <title>みんなの経理 | 無料税金計算</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -249,7 +249,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>税金計算</h1>
+    <h1>みんなの経理</h1>
     <p class="subtitle">個人事業主・一人法人 | サーバー不要・完全無料</p>
 
     <!-- Auth bar -->
@@ -474,7 +474,7 @@
     applyBusinessMode();
 
     // ------- Google Auth -------
-    const CLIENT_ID = ''; // TODO: Set your Google OAuth Client ID
+    const CLIENT_ID = '267211003481-pck8amdusjfedr9gvvlje4uke53ig4lh.apps.googleusercontent.com';
     const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
     let tokenClient;
     let accessToken = null;
