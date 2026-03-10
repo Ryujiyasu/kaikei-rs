@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Japanese tax calculation library for sole proprietors (個人事業主向け税金計算)"
 license = "MIT"
-repository = "https://github.com/Ryujiyasu/kaikei-rs"
+repository = "https://github.com/Ryujiyasu/minnano-keiri"
 keywords = ["tax", "japan", "accounting", "kaikei"]
 categories = ["finance"]
 

@@ -402,7 +402,7 @@
     </div>
 
     <footer>
-      Powered by <a href="https://github.com/Ryujiyasu/kaikei-rs" target="_blank">kaikei-rs</a> (Rust + WebAssembly)<br>
+      Powered by <a href="https://github.com/Ryujiyasu/minnano-keiri" target="_blank">みんなの経理</a> (Rust + WebAssembly)<br>
       サーバーレス・データ送信なし・すべてブラウザ上で計算
     </footer>
   </div>
@@ -414,6 +414,12 @@
     import init, { calc_sole_proprietor, calc_corporate } from './pkg/kaikei_rs.js';
 
     await init();
+
+    // ------- Google Auth state (declared early for use in applyBusinessMode) -------
+    const CLIENT_ID = '267211003481-pck8amdusjfedr9gvvlje4uke53ig4lh.apps.googleusercontent.com';
+    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+    let tokenClient;
+    let accessToken = null;
 
     // ------- Business mode (sole/corp) -------
     let businessMode = localStorage.getItem('kaikei_business_mode'); // 'sole' or 'corp' or null
@@ -474,11 +480,6 @@
     applyBusinessMode();
 
     // ------- Google Auth -------
-    const CLIENT_ID = '267211003481-pck8amdusjfedr9gvvlje4uke53ig4lh.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-    let tokenClient;
-    let accessToken = null;
-
     window.addEventListener('load', () => {
       if (typeof google !== 'undefined' && google.accounts) {
         tokenClient = google.accounts.oauth2.initTokenClient({
@@ -620,7 +621,7 @@
     };
 
     // ------- Save to Google Sheets -------
-    const SPREADSHEET_TITLE = 'kaikei-rs 税金計算履歴';
+    const SPREADSHEET_TITLE = 'みんなの経理 税金計算履歴';
 
     async function findOrCreateSpreadsheet() {
       const searchRes = await fetch(
