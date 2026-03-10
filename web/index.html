@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>個人事業主 税金計算 | kaikei-rs</title>
+  <title>税金計算 | kaikei-rs</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -25,9 +25,99 @@
     .subtitle {
       text-align: center;
       color: #666;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
       font-size: 0.9em;
     }
+
+    /* Auth bar */
+    .auth-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      font-size: 0.85em;
+    }
+    .auth-bar .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .auth-bar img.avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+    }
+    .auth-bar .user-type-badge {
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.8em;
+    }
+    .auth-bar button {
+      width: auto;
+      padding: 6px 16px;
+      font-size: 0.85em;
+      border-radius: 6px;
+    }
+    .btn-google {
+      background: #fff;
+      color: #333;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      font-weight: normal;
+    }
+    .btn-google:hover { background: #f5f5f5; }
+    .btn-signout {
+      background: #eee;
+      color: #666;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      font-weight: normal;
+    }
+
+    /* Setup screen (business type selection) */
+    .setup-screen {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .setup-screen h2 {
+      margin-bottom: 12px;
+      font-size: 1.3em;
+    }
+    .setup-screen p {
+      color: #666;
+      margin-bottom: 32px;
+    }
+    .setup-options {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    .setup-option {
+      flex: 1;
+      max-width: 240px;
+      padding: 32px 20px;
+      background: #fff;
+      border: 2px solid #ddd;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .setup-option:hover {
+      border-color: #4CAF50;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.15);
+    }
+    .setup-option .icon { font-size: 2.5em; margin-bottom: 12px; }
+    .setup-option .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
+    .setup-option .desc { color: #888; font-size: 0.85em; }
+
+    /* Main app (hidden until type selected) */
+    .main-app { display: none; }
+
     .card {
       background: #fff;
       border-radius: 12px;
@@ -41,20 +131,14 @@
       padding-bottom: 8px;
       border-bottom: 2px solid #4CAF50;
     }
-    .form-group {
-      margin-bottom: 16px;
-    }
+    .form-group { margin-bottom: 16px; }
     label {
       display: block;
       font-weight: bold;
       margin-bottom: 4px;
       font-size: 0.9em;
     }
-    .hint {
-      color: #888;
-      font-size: 0.8em;
-      font-weight: normal;
-    }
+    .hint { color: #888; font-size: 0.8em; font-weight: normal; }
     input[type="number"], select {
       width: 100%;
       padding: 10px 12px;
@@ -77,7 +161,7 @@
       width: 20px;
       height: 20px;
     }
-    button {
+    .btn-calc {
       width: 100%;
       padding: 14px;
       background: #4CAF50;
@@ -89,9 +173,26 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-    button:hover { background: #43A047; }
-    button:active { background: #388E3C; }
-    #results { display: none; }
+    .btn-calc:hover { background: #43A047; }
+    .btn-calc:active { background: #388E3C; }
+
+    .btn-save {
+      width: 100%;
+      padding: 12px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95em;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: background 0.2s;
+    }
+    .btn-save:hover { background: #1565c0; }
+    .btn-save:disabled { background: #ccc; cursor: not-allowed; }
+
+    .results { display: none; }
     .result-row {
       display: flex;
       justify-content: space-between;
@@ -110,13 +211,6 @@
     }
     .result-row.total .value { color: #d32f2f; }
     .rate { color: #666; font-size: 0.85em; margin-top: 8px; text-align: right; }
-    footer {
-      text-align: center;
-      padding: 20px;
-      color: #999;
-      font-size: 0.8em;
-    }
-    footer a { color: #666; }
     .note {
       background: #FFF8E1;
       border-radius: 8px;
@@ -125,87 +219,185 @@
       color: #666;
       margin-top: 12px;
     }
+    .save-status {
+      text-align: center;
+      font-size: 0.85em;
+      margin-top: 8px;
+      color: #4CAF50;
+    }
+    .section { display: none; }
+    .section.active { display: block; }
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 0.8em;
+    }
+    footer a { color: #666; }
+    .change-type {
+      display: inline;
+      background: none;
+      border: none;
+      color: #1a73e8;
+      cursor: pointer;
+      font-size: 0.8em;
+      text-decoration: underline;
+      padding: 0;
+      width: auto;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>個人事業主 税金計算</h1>
-    <p class="subtitle">サーバー不要・完全無料・ブラウザだけで動きます</p>
+    <h1>税金計算</h1>
+    <p class="subtitle">個人事業主・一人法人 | サーバー不要・完全無料</p>
 
-    <div class="card">
-      <h2>入力</h2>
-      <div class="form-group">
-        <label>年度</label>
-        <select id="fiscalYear">
-          <option value="2025" selected>令和7年 (2025)</option>
-          <option value="2024">令和6年 (2024)</option>
-        </select>
+    <!-- Auth bar -->
+    <div class="auth-bar">
+      <div id="auth-signed-out">
+        <button class="btn-google" onclick="handleSignIn()">Googleでログイン</button>
       </div>
-      <div class="form-group">
-        <label>売上（年間） <span class="hint">円</span></label>
-        <input type="number" id="revenue" value="8000000" min="0" step="10000">
-      </div>
-      <div class="form-group">
-        <label>経費（年間） <span class="hint">円</span></label>
-        <input type="number" id="expenses" value="2000000" min="0" step="10000">
-      </div>
-      <div class="form-group">
-        <label>業種</label>
-        <select id="businessType">
-          <option value="type1" selected>第1種（物品販売・飲食店等）5%</option>
-          <option value="type2">第2種（畜産業等）4%</option>
-          <option value="type3">第3種（医業・士業等）5%</option>
-          <option value="type3low">第3種（あんま・マッサージ等）3%</option>
-          <option value="exempt">非課税（農業・林業・作家等）</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <div class="checkbox-group">
-          <input type="checkbox" id="blueReturn" checked>
-          <label for="blueReturn" style="margin-bottom:0">青色申告（e-Tax / 電子帳簿）</label>
+      <div id="auth-signed-in" style="display:none">
+        <div class="user-info">
+          <img class="avatar" id="user-avatar" src="" alt="">
+          <span id="user-name"></span>
+          <span class="user-type-badge" id="user-type-badge"></span>
+          <button class="btn-signout" onclick="handleSignOut()">ログアウト</button>
         </div>
       </div>
-      <button onclick="calculate()">計算する</button>
     </div>
 
-    <div class="card" id="results">
-      <h2>結果</h2>
-      <div class="result-row">
-        <span class="label">事業所得</span>
-        <span class="value" id="r-income"></span>
+    <!-- Setup screen: choose business type on first login -->
+    <div class="setup-screen" id="setup-screen">
+      <div class="card">
+        <h2>事業形態を選択してください</h2>
+        <p>一度選択すると、以降はこの設定で表示されます</p>
+        <div class="setup-options">
+          <div class="setup-option" onclick="selectBusinessMode('sole')">
+            <div class="icon">&#x1F4DD;</div>
+            <div class="name">個人事業主</div>
+            <div class="desc">所得税・住民税・事業税</div>
+          </div>
+          <div class="setup-option" onclick="selectBusinessMode('corp')">
+            <div class="icon">&#x1F3E2;</div>
+            <div class="name">法人</div>
+            <div class="desc">法人税・事業税・住民税</div>
+          </div>
+        </div>
       </div>
-      <div class="result-row">
-        <span class="label">所得控除合計</span>
-        <span class="value" id="r-deductions"></span>
+    </div>
+
+    <!-- Main app -->
+    <div class="main-app" id="main-app">
+
+      <!-- ===== 個人事業主 ===== -->
+      <div class="section" id="section-sole">
+        <div class="card">
+          <h2>入力 <button class="change-type" onclick="resetBusinessMode()">事業形態を変更</button></h2>
+          <div class="form-group">
+            <label>年度</label>
+            <select id="s-fiscalYear">
+              <option value="2025" selected>令和7年 (2025)</option>
+              <option value="2024">令和6年 (2024)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>売上（年間） <span class="hint">円</span></label>
+            <input type="number" id="s-revenue" value="8000000" min="0" step="10000">
+          </div>
+          <div class="form-group">
+            <label>経費（年間） <span class="hint">円</span></label>
+            <input type="number" id="s-expenses" value="2000000" min="0" step="10000">
+          </div>
+          <div class="form-group">
+            <label>業種</label>
+            <select id="s-businessType">
+              <option value="type1" selected>第1種（物品販売・飲食店等）5%</option>
+              <option value="type2">第2種（畜産業等）4%</option>
+              <option value="type3">第3種（医業・士業等）5%</option>
+              <option value="type3low">第3種（あんま・マッサージ等）3%</option>
+              <option value="exempt">非課税（農業・林業・作家等）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="s-blueReturn" checked>
+              <label for="s-blueReturn" style="margin-bottom:0">青色申告（e-Tax / 電子帳簿）</label>
+            </div>
+          </div>
+          <button class="btn-calc" onclick="calcSole()">計算する</button>
+        </div>
+
+        <div class="card results" id="s-results">
+          <h2>結果</h2>
+          <div class="result-row"><span class="label">事業所得</span><span class="value" id="s-r-income"></span></div>
+          <div class="result-row"><span class="label">所得控除合計</span><span class="value" id="s-r-deductions"></span></div>
+          <div class="result-row"><span class="label">課税所得</span><span class="value" id="s-r-taxable"></span></div>
+          <div class="result-row"><span class="label">所得税</span><span class="value" id="s-r-incometax"></span></div>
+          <div class="result-row"><span class="label">復興特別所得税</span><span class="value" id="s-r-reconstruction"></span></div>
+          <div class="result-row"><span class="label">住民税</span><span class="value" id="s-r-resident"></span></div>
+          <div class="result-row"><span class="label">個人事業税</span><span class="value" id="s-r-business"></span></div>
+          <div class="result-row total"><span class="label">合計税額</span><span class="value" id="s-r-total"></span></div>
+          <div class="rate" id="s-r-rate"></div>
+          <button class="btn-save" id="s-btn-save" onclick="saveToSheets('sole')" disabled>Google Sheetsに保存</button>
+          <div class="save-status" id="s-save-status"></div>
+          <div class="note">
+            ※ 概算です。社会保険料控除・医療費控除・扶養控除等は含まれていません。
+          </div>
+        </div>
       </div>
-      <div class="result-row">
-        <span class="label">課税所得</span>
-        <span class="value" id="r-taxable"></span>
-      </div>
-      <div class="result-row">
-        <span class="label">所得税</span>
-        <span class="value" id="r-incometax"></span>
-      </div>
-      <div class="result-row">
-        <span class="label">復興特別所得税</span>
-        <span class="value" id="r-reconstruction"></span>
-      </div>
-      <div class="result-row">
-        <span class="label">住民税</span>
-        <span class="value" id="r-resident"></span>
-      </div>
-      <div class="result-row">
-        <span class="label">個人事業税</span>
-        <span class="value" id="r-business"></span>
-      </div>
-      <div class="result-row total">
-        <span class="label">合計税額</span>
-        <span class="value" id="r-total"></span>
-      </div>
-      <div class="rate" id="r-rate"></div>
-      <div class="note">
-        ※ この計算は概算です。社会保険料控除・医療費控除・扶養控除等は含まれていません。
-        正確な税額は税理士または確定申告書でご確認ください。
+
+      <!-- ===== 法人 ===== -->
+      <div class="section" id="section-corp">
+        <div class="card">
+          <h2>入力 <button class="change-type" onclick="resetBusinessMode()">事業形態を変更</button></h2>
+          <div class="form-group">
+            <label>年度</label>
+            <select id="c-fiscalYear">
+              <option value="2025" selected>令和7年 (2025)</option>
+              <option value="2024">令和6年 (2024)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>売上（年間） <span class="hint">円</span></label>
+            <input type="number" id="c-revenue" value="20000000" min="0" step="10000">
+          </div>
+          <div class="form-group">
+            <label>経費（年間） <span class="hint">役員報酬含む</span></label>
+            <input type="number" id="c-expenses" value="10000000" min="0" step="10000">
+          </div>
+          <div class="form-group">
+            <label>資本金</label>
+            <select id="c-capitalTier">
+              <option value="under10m" selected>1,000万円以下</option>
+              <option value="under100m">1,000万円超〜1億円以下</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="c-employees50">
+              <label for="c-employees50" style="margin-bottom:0">従業員50人超</label>
+            </div>
+          </div>
+          <button class="btn-calc" onclick="calcCorp()">計算する</button>
+        </div>
+
+        <div class="card results" id="c-results">
+          <h2>結果</h2>
+          <div class="result-row"><span class="label">課税所得</span><span class="value" id="c-r-taxable"></span></div>
+          <div class="result-row"><span class="label">法人税</span><span class="value" id="c-r-corporate"></span></div>
+          <div class="result-row"><span class="label">地方法人税</span><span class="value" id="c-r-local"></span></div>
+          <div class="result-row"><span class="label">法人住民税</span><span class="value" id="c-r-resident"></span></div>
+          <div class="result-row"><span class="label">法人事業税</span><span class="value" id="c-r-enterprise"></span></div>
+          <div class="result-row"><span class="label">特別法人事業税</span><span class="value" id="c-r-special"></span></div>
+          <div class="result-row total"><span class="label">合計税額</span><span class="value" id="c-r-total"></span></div>
+          <div class="rate" id="c-r-rate"></div>
+          <button class="btn-save" id="c-btn-save" onclick="saveToSheets('corp')" disabled>Google Sheetsに保存</button>
+          <div class="save-status" id="c-save-status"></div>
+          <div class="note">
+            ※ 中小法人（資本金1億円以下）向けの概算です。外形標準課税・繰越欠損金等は未考慮です。
+          </div>
+        </div>
       </div>
     </div>
 
@@ -215,43 +407,321 @@
     </footer>
   </div>
 
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <script type="module">
-    import init, { calc_sole_proprietor } from './pkg/kaikei_rs.js';
+    import init, { calc_sole_proprietor, calc_corporate } from './pkg/kaikei_rs.js';
 
     await init();
 
+    // ------- Business mode (sole/corp) -------
+    let businessMode = localStorage.getItem('kaikei_business_mode'); // 'sole' or 'corp' or null
+
+    function applyBusinessMode() {
+      const setupEl = document.getElementById('setup-screen');
+      const mainEl = document.getElementById('main-app');
+      const badgeEl = document.getElementById('user-type-badge');
+
+      if (!businessMode) {
+        // No mode selected yet - show setup if logged in, show sole proprietor by default if not
+        if (accessToken) {
+          setupEl.style.display = 'block';
+          mainEl.style.display = 'none';
+        } else {
+          // Not logged in: show sole proprietor as default
+          setupEl.style.display = 'none';
+          mainEl.style.display = 'block';
+          document.getElementById('section-sole').classList.add('active');
+          document.getElementById('section-corp').classList.remove('active');
+        }
+        badgeEl.textContent = '';
+        return;
+      }
+
+      setupEl.style.display = 'none';
+      mainEl.style.display = 'block';
+
+      if (businessMode === 'sole') {
+        document.getElementById('section-sole').classList.add('active');
+        document.getElementById('section-corp').classList.remove('active');
+        badgeEl.textContent = '個人事業主';
+      } else {
+        document.getElementById('section-sole').classList.remove('active');
+        document.getElementById('section-corp').classList.add('active');
+        badgeEl.textContent = '法人';
+      }
+    }
+
+    window.selectBusinessMode = function(mode) {
+      businessMode = mode;
+      localStorage.setItem('kaikei_business_mode', mode);
+      applyBusinessMode();
+    };
+
+    window.resetBusinessMode = function() {
+      businessMode = null;
+      localStorage.removeItem('kaikei_business_mode');
+      if (accessToken) {
+        document.getElementById('setup-screen').style.display = 'block';
+        document.getElementById('main-app').style.display = 'none';
+      } else {
+        applyBusinessMode();
+      }
+    };
+
+    // Apply on load
+    applyBusinessMode();
+
+    // ------- Google Auth -------
+    const CLIENT_ID = ''; // TODO: Set your Google OAuth Client ID
+    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+    let tokenClient;
+    let accessToken = null;
+
+    window.addEventListener('load', () => {
+      if (typeof google !== 'undefined' && google.accounts) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: (resp) => {
+            if (resp.error) return;
+            accessToken = resp.access_token;
+            showSignedIn();
+            fetchUserInfo();
+            // If no business mode selected, show setup
+            if (!businessMode) {
+              document.getElementById('setup-screen').style.display = 'block';
+              document.getElementById('main-app').style.display = 'none';
+            }
+          },
+        });
+      }
+    });
+
+    window.handleSignIn = function() {
+      if (!CLIENT_ID) {
+        alert('Google OAuth Client IDが未設定です。\n管理者にお問い合わせください。');
+        return;
+      }
+      if (tokenClient) tokenClient.requestAccessToken();
+    };
+
+    window.handleSignOut = function() {
+      if (accessToken) {
+        google.accounts.oauth2.revoke(accessToken);
+      }
+      accessToken = null;
+      showSignedOut();
+    };
+
+    function showSignedIn() {
+      document.getElementById('auth-signed-out').style.display = 'none';
+      document.getElementById('auth-signed-in').style.display = 'block';
+      document.querySelectorAll('.btn-save').forEach(b => b.disabled = false);
+      applyBusinessMode();
+    }
+
+    function showSignedOut() {
+      document.getElementById('auth-signed-out').style.display = 'block';
+      document.getElementById('auth-signed-in').style.display = 'none';
+      document.getElementById('user-name').textContent = '';
+      document.getElementById('user-avatar').src = '';
+      document.querySelectorAll('.btn-save').forEach(b => b.disabled = true);
+      applyBusinessMode();
+    }
+
+    async function fetchUserInfo() {
+      try {
+        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const info = await res.json();
+        document.getElementById('user-name').textContent = info.name || info.email;
+        if (info.picture) document.getElementById('user-avatar').src = info.picture;
+      } catch (e) { /* ignore */ }
+    }
+
+    // ------- Formatting -------
     function fmt(n) {
       return Number(n).toLocaleString('ja-JP') + '円';
     }
 
-    window.calculate = function() {
-      const fy = document.getElementById('fiscalYear').value;
-      const revenue = BigInt(document.getElementById('revenue').value || 0);
-      const expenses = BigInt(document.getElementById('expenses').value || 0);
-      const blue = document.getElementById('blueReturn').checked;
-      const btype = document.getElementById('businessType').value;
+    // ------- Store last result for save -------
+    let lastSoleResult = null;
+    let lastCorpResult = null;
+
+    // ------- Sole Proprietor -------
+    window.calcSole = function() {
+      const fy = document.getElementById('s-fiscalYear').value;
+      const revenue = BigInt(document.getElementById('s-revenue').value || 0);
+      const expenses = BigInt(document.getElementById('s-expenses').value || 0);
+      const blue = document.getElementById('s-blueReturn').checked;
+      const btype = document.getElementById('s-businessType').value;
 
       try {
         const json = calc_sole_proprietor(fy, revenue, expenses, blue, btype);
         const r = JSON.parse(json);
+        lastSoleResult = r;
 
-        document.getElementById('r-income').textContent = fmt(r.business_income);
-        document.getElementById('r-deductions').textContent = fmt(r.total_deductions);
-        document.getElementById('r-taxable').textContent = fmt(r.taxable_income);
-        document.getElementById('r-incometax').textContent = fmt(r.income_tax);
-        document.getElementById('r-reconstruction').textContent = fmt(r.reconstruction_tax);
-        document.getElementById('r-resident').textContent = fmt(r.resident_tax);
-        document.getElementById('r-business').textContent = fmt(r.business_tax);
+        document.getElementById('s-r-income').textContent = fmt(r.business_income);
+        document.getElementById('s-r-deductions').textContent = fmt(r.total_deductions);
+        document.getElementById('s-r-taxable').textContent = fmt(r.taxable_income);
+        document.getElementById('s-r-incometax').textContent = fmt(r.income_tax);
+        document.getElementById('s-r-reconstruction').textContent = fmt(r.reconstruction_tax);
+        document.getElementById('s-r-resident').textContent = fmt(r.resident_tax);
+        document.getElementById('s-r-business').textContent = fmt(r.business_tax);
 
         const total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
-        document.getElementById('r-total').textContent = fmt(total);
+        document.getElementById('s-r-total').textContent = fmt(total);
 
         const rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) : '0.0';
-        document.getElementById('r-rate').textContent = `実効税率: ${rate}%`;
+        document.getElementById('s-r-rate').textContent = `実効税率: ${rate}%`;
 
-        document.getElementById('results').style.display = 'block';
+        document.getElementById('s-results').style.display = 'block';
+        document.getElementById('s-save-status').textContent = '';
       } catch (e) {
         alert('計算エラー: ' + e);
+      }
+    };
+
+    // ------- Corporate -------
+    window.calcCorp = function() {
+      const fy = document.getElementById('c-fiscalYear').value;
+      const revenue = BigInt(document.getElementById('c-revenue').value || 0);
+      const expenses = BigInt(document.getElementById('c-expenses').value || 0);
+      const tier = document.getElementById('c-capitalTier').value;
+      const emp50 = document.getElementById('c-employees50').checked;
+
+      try {
+        const json = calc_corporate(fy, revenue, expenses, tier, emp50);
+        const r = JSON.parse(json);
+        lastCorpResult = r;
+
+        document.getElementById('c-r-taxable').textContent = fmt(r.taxable_income);
+        document.getElementById('c-r-corporate').textContent = fmt(r.corporate_tax);
+        document.getElementById('c-r-local').textContent = fmt(r.local_corporate_tax);
+        document.getElementById('c-r-resident').textContent = fmt(r.corporate_resident_tax);
+        document.getElementById('c-r-enterprise').textContent = fmt(r.enterprise_tax);
+        document.getElementById('c-r-special').textContent = fmt(r.special_enterprise_tax);
+
+        const total = r.corporate_tax + r.local_corporate_tax + r.corporate_resident_tax
+                    + r.enterprise_tax + r.special_enterprise_tax;
+        document.getElementById('c-r-total').textContent = fmt(total);
+
+        const rate = r.taxable_income > 0 ? (total / r.taxable_income * 100).toFixed(1) : '0.0';
+        document.getElementById('c-r-rate').textContent = `実効税率: ${rate}%`;
+
+        document.getElementById('c-results').style.display = 'block';
+        document.getElementById('c-save-status').textContent = '';
+      } catch (e) {
+        alert('計算エラー: ' + e);
+      }
+    };
+
+    // ------- Save to Google Sheets -------
+    const SPREADSHEET_TITLE = 'kaikei-rs 税金計算履歴';
+
+    async function findOrCreateSpreadsheet() {
+      const searchRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(SPREADSHEET_TITLE)}'+and+mimeType='application/vnd.google-apps.spreadsheet'+and+trashed=false&fields=files(id,name)`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const searchData = await searchRes.json();
+
+      if (searchData.files && searchData.files.length > 0) {
+        return searchData.files[0].id;
+      }
+
+      const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          properties: { title: SPREADSHEET_TITLE },
+          sheets: [
+            {
+              properties: { title: '個人事業主' },
+              data: [{
+                startRow: 0, startColumn: 0,
+                rowData: [{
+                  values: ['日時', '年度', '売上', '経費', '事業所得', '所得控除', '課税所得',
+                           '所得税', '復興税', '住民税', '事業税', '合計', '実効税率']
+                    .map(v => ({ userEnteredValue: { stringValue: v } }))
+                }]
+              }]
+            },
+            {
+              properties: { title: '法人' },
+              data: [{
+                startRow: 0, startColumn: 0,
+                rowData: [{
+                  values: ['日時', '年度', '売上', '経費', '課税所得',
+                           '法人税', '地方法人税', '法人住民税', '法人事業税', '特別法人事業税', '合計', '実効税率']
+                    .map(v => ({ userEnteredValue: { stringValue: v } }))
+                }]
+              }]
+            }
+          ]
+        }),
+      });
+      const created = await createRes.json();
+      return created.spreadsheetId;
+    }
+
+    window.saveToSheets = async function(type) {
+      if (!accessToken) {
+        alert('Googleにログインしてください');
+        return;
+      }
+
+      const statusEl = document.getElementById(type === 'sole' ? 's-save-status' : 'c-save-status');
+      statusEl.textContent = '保存中...';
+
+      try {
+        const spreadsheetId = await findOrCreateSpreadsheet();
+        const now = new Date().toLocaleString('ja-JP');
+        let sheetName, values;
+
+        if (type === 'sole' && lastSoleResult) {
+          const r = lastSoleResult;
+          const total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
+          const rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) + '%' : '0%';
+          sheetName = '個人事業主';
+          values = [now, r.fiscal_year, r.revenue, r.expenses, r.business_income,
+                    r.total_deductions, r.taxable_income, r.income_tax,
+                    r.reconstruction_tax, r.resident_tax, r.business_tax, total, rate];
+        } else if (type === 'corp' && lastCorpResult) {
+          const r = lastCorpResult;
+          const total = r.corporate_tax + r.local_corporate_tax + r.corporate_resident_tax
+                      + r.enterprise_tax + r.special_enterprise_tax;
+          const rate = r.taxable_income > 0 ? (total / r.taxable_income * 100).toFixed(1) + '%' : '0%';
+          sheetName = '法人';
+          values = [now, r.fiscal_year, r.revenue, r.expenses, r.taxable_income,
+                    r.corporate_tax, r.local_corporate_tax, r.corporate_resident_tax,
+                    r.enterprise_tax, r.special_enterprise_tax, total, rate];
+        } else {
+          statusEl.textContent = '先に計算を実行してください';
+          return;
+        }
+
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ values: [values] }),
+          }
+        );
+
+        statusEl.textContent = 'Google Sheetsに保存しました';
+      } catch (e) {
+        statusEl.textContent = '保存エラー: ' + e.message;
       }
     };
   </script>

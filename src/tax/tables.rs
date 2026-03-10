@@ -158,3 +158,70 @@ pub fn consumption_tax_rate(_fy: FiscalYear) -> f64 {
 pub fn consumption_tax_reduced_rate(_fy: FiscalYear) -> f64 {
     0.08
 }
+
+// ============================================================
+// Corporate tax tables (法人税関連)
+// ============================================================
+
+/// Corporate tax rate: 800万円以下 (中小法人特例).
+pub fn corporate_tax_reduced_rate(_fy: FiscalYear) -> f64 {
+    0.15
+}
+
+/// Corporate tax rate: 800万円超.
+pub fn corporate_tax_standard_rate(_fy: FiscalYear) -> f64 {
+    0.232
+}
+
+/// Threshold for reduced corporate tax rate.
+pub fn corporate_tax_reduced_threshold(_fy: FiscalYear) -> u64 {
+    8_000_000
+}
+
+/// Local corporate tax rate (地方法人税): percentage of 法人税額.
+pub fn local_corporate_tax_rate(_fy: FiscalYear) -> f64 {
+    0.103
+}
+
+/// Corporate resident tax rate (法人住民税 法人税割): percentage of 法人税額.
+/// 都道府県民税1.0% + 市町村民税6.0% = 7.0%
+pub fn corporate_resident_tax_rate(_fy: FiscalYear) -> f64 {
+    0.07
+}
+
+/// Capital tier for corporate resident tax flat portion (均等割).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum CapitalTier {
+    /// 資本金1,000万円以下
+    Under10M,
+    /// 資本金1,000万円超〜1億円以下
+    Under100M,
+}
+
+/// Corporate resident tax flat portion (法人住民税 均等割).
+pub fn corporate_resident_tax_flat(_fy: FiscalYear, capital_tier: CapitalTier, employees_over_50: bool) -> u64 {
+    match (capital_tier, employees_over_50) {
+        (CapitalTier::Under10M, false) => 70_000,   // 都道府県2万 + 市町村5万
+        (CapitalTier::Under10M, true) => 140_000,    // 都道府県2万 + 市町村12万
+        (CapitalTier::Under100M, false) => 180_000,  // 都道府県5万 + 市町村13万
+        (CapitalTier::Under100M, true) => 200_000,   // 都道府県5万 + 市町村15万
+    }
+}
+
+/// Corporate enterprise tax bracket (法人事業税 所得割).
+/// Returns (threshold_400, threshold_800, rate1, rate2, rate3).
+pub fn corporate_enterprise_tax_rates(_fy: FiscalYear) -> (u64, u64, f64, f64, f64) {
+    (
+        4_000_000,  // 400万円
+        8_000_000,  // 800万円
+        0.035,      // 400万円以下: 3.5%
+        0.053,      // 400万円超〜800万円以下: 5.3%
+        0.070,      // 800万円超: 7.0%
+    )
+}
+
+/// Special corporate enterprise tax rate (特別法人事業税).
+/// Percentage of 法人事業税所得割額.
+pub fn special_corporate_enterprise_tax_rate(_fy: FiscalYear) -> f64 {
+    0.37
+}

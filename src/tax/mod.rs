@@ -17,6 +17,7 @@
 //! ```
 
 pub mod consumption;
+pub mod corporate;
 pub mod income;
 pub mod tables;
 
@@ -45,6 +46,48 @@ pub struct SolePropResult {
     pub resident_tax: u64,
     /// Business tax (個人事業税).
     pub business_tax: u64,
+}
+
+/// Summary of all taxes for a corporation (法人).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CorporateResult {
+    /// Fiscal year used for calculation.
+    pub fiscal_year: FiscalYear,
+    /// Gross revenue (売上).
+    pub revenue: u64,
+    /// Total deductible expenses (経費).
+    pub expenses: u64,
+    /// Taxable income (課税所得).
+    pub taxable_income: u64,
+    /// Corporate income tax (法人税).
+    pub corporate_tax: u64,
+    /// Local corporate tax (地方法人税).
+    pub local_corporate_tax: u64,
+    /// Corporate resident tax (法人住民税 = 法人税割 + 均等割).
+    pub corporate_resident_tax: u64,
+    /// Corporate enterprise tax (法人事業税 所得割).
+    pub enterprise_tax: u64,
+    /// Special corporate enterprise tax (特別法人事業税).
+    pub special_enterprise_tax: u64,
+}
+
+impl CorporateResult {
+    /// Total tax burden (税金合計).
+    pub fn total(&self) -> u64 {
+        self.corporate_tax
+            + self.local_corporate_tax
+            + self.corporate_resident_tax
+            + self.enterprise_tax
+            + self.special_enterprise_tax
+    }
+
+    /// Effective tax rate (実効税率).
+    pub fn effective_rate(&self) -> f64 {
+        if self.taxable_income == 0 {
+            return 0.0;
+        }
+        self.total() as f64 / self.taxable_income as f64
+    }
 }
 
 impl SolePropResult {

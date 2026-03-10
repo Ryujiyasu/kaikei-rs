@@ -2,8 +2,8 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::tax::income;
-use crate::tax::tables::{BusinessType, FiscalYear};
+use crate::tax::{corporate, income};
+use crate::tax::tables::{BusinessType, CapitalTier, FiscalYear};
 
 fn parse_fiscal_year(year: &str) -> Result<FiscalYear, JsValue> {
     match year {
@@ -68,4 +68,27 @@ pub fn price_without_tax(
         price_inclusive,
         reduced_rate,
     ))
+}
+
+fn parse_capital_tier(tier: &str) -> CapitalTier {
+    match tier {
+        "under100m" => CapitalTier::Under100M,
+        _ => CapitalTier::Under10M,
+    }
+}
+
+/// Calculate all taxes for a corporation (法人). Returns JSON string.
+#[wasm_bindgen]
+pub fn calc_corporate(
+    fiscal_year: &str,
+    revenue: u64,
+    expenses: u64,
+    capital_tier: &str,
+    employees_over_50: bool,
+) -> Result<String, JsValue> {
+    let fy = parse_fiscal_year(fiscal_year)?;
+    let tier = parse_capital_tier(capital_tier);
+    let result = corporate::calc_corporate(fy, revenue, expenses, tier, employees_over_50);
+
+    serde_json::to_string(&result).map_err(|e| JsValue::from_str(&e.to_string()))
 }
