@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>個人事業主 税金計算 | kaikei-rs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 8px;
+      font-size: 1.5em;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 24px;
+      font-size: 0.9em;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      font-size: 1.1em;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #4CAF50;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+      font-size: 0.9em;
+    }
+    .hint {
+      color: #888;
+      font-size: 0.8em;
+      font-weight: normal;
+    }
+    input[type="number"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      -webkit-appearance: none;
+    }
+    input[type="number"]:focus, select:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 2px rgba(76,175,80,0.2);
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #43A047; }
+    button:active { background: #388E3C; }
+    #results { display: none; }
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .result-row:last-child { border-bottom: none; }
+    .result-row .label { color: #666; }
+    .result-row .value { font-weight: bold; font-variant-numeric: tabular-nums; }
+    .result-row.total {
+      border-top: 2px solid #333;
+      border-bottom: none;
+      padding-top: 12px;
+      margin-top: 4px;
+      font-size: 1.2em;
+    }
+    .result-row.total .value { color: #d32f2f; }
+    .rate { color: #666; font-size: 0.85em; margin-top: 8px; text-align: right; }
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 0.8em;
+    }
+    footer a { color: #666; }
+    .note {
+      background: #FFF8E1;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85em;
+      color: #666;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>個人事業主 税金計算</h1>
+    <p class="subtitle">サーバー不要・完全無料・ブラウザだけで動きます</p>
+
+    <div class="card">
+      <h2>入力</h2>
+      <div class="form-group">
+        <label>年度</label>
+        <select id="fiscalYear">
+          <option value="2025" selected>令和7年 (2025)</option>
+          <option value="2024">令和6年 (2024)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>売上（年間） <span class="hint">円</span></label>
+        <input type="number" id="revenue" value="8000000" min="0" step="10000">
+      </div>
+      <div class="form-group">
+        <label>経費（年間） <span class="hint">円</span></label>
+        <input type="number" id="expenses" value="2000000" min="0" step="10000">
+      </div>
+      <div class="form-group">
+        <label>業種</label>
+        <select id="businessType">
+          <option value="type1" selected>第1種（物品販売・飲食店等）5%</option>
+          <option value="type2">第2種（畜産業等）4%</option>
+          <option value="type3">第3種（医業・士業等）5%</option>
+          <option value="type3low">第3種（あんま・マッサージ等）3%</option>
+          <option value="exempt">非課税（農業・林業・作家等）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="checkbox-group">
+          <input type="checkbox" id="blueReturn" checked>
+          <label for="blueReturn" style="margin-bottom:0">青色申告（e-Tax / 電子帳簿）</label>
+        </div>
+      </div>
+      <button onclick="calculate()">計算する</button>
+    </div>
+
+    <div class="card" id="results">
+      <h2>結果</h2>
+      <div class="result-row">
+        <span class="label">事業所得</span>
+        <span class="value" id="r-income"></span>
+      </div>
+      <div class="result-row">
+        <span class="label">所得控除合計</span>
+        <span class="value" id="r-deductions"></span>
+      </div>
+      <div class="result-row">
+        <span class="label">課税所得</span>
+        <span class="value" id="r-taxable"></span>
+      </div>
+      <div class="result-row">
+        <span class="label">所得税</span>
+        <span class="value" id="r-incometax"></span>
+      </div>
+      <div class="result-row">
+        <span class="label">復興特別所得税</span>
+        <span class="value" id="r-reconstruction"></span>
+      </div>
+      <div class="result-row">
+        <span class="label">住民税</span>
+        <span class="value" id="r-resident"></span>
+      </div>
+      <div class="result-row">
+        <span class="label">個人事業税</span>
+        <span class="value" id="r-business"></span>
+      </div>
+      <div class="result-row total">
+        <span class="label">合計税額</span>
+        <span class="value" id="r-total"></span>
+      </div>
+      <div class="rate" id="r-rate"></div>
+      <div class="note">
+        ※ この計算は概算です。社会保険料控除・医療費控除・扶養控除等は含まれていません。
+        正確な税額は税理士または確定申告書でご確認ください。
+      </div>
+    </div>
+
+    <footer>
+      Powered by <a href="https://github.com/Ryujiyasu/kaikei-rs" target="_blank">kaikei-rs</a> (Rust + WebAssembly)<br>
+      サーバーレス・データ送信なし・すべてブラウザ上で計算
+    </footer>
+  </div>
+
+  <script type="module">
+    import init, { calc_sole_proprietor } from './pkg/kaikei_rs.js';
+
+    await init();
+
+    function fmt(n) {
+      return Number(n).toLocaleString('ja-JP') + '円';
+    }
+
+    window.calculate = function() {
+      const fy = document.getElementById('fiscalYear').value;
+      const revenue = BigInt(document.getElementById('revenue').value || 0);
+      const expenses = BigInt(document.getElementById('expenses').value || 0);
+      const blue = document.getElementById('blueReturn').checked;
+      const btype = document.getElementById('businessType').value;
+
+      try {
+        const json = calc_sole_proprietor(fy, revenue, expenses, blue, btype);
+        const r = JSON.parse(json);
+
+        document.getElementById('r-income').textContent = fmt(r.business_income);
+        document.getElementById('r-deductions').textContent = fmt(r.total_deductions);
+        document.getElementById('r-taxable').textContent = fmt(r.taxable_income);
+        document.getElementById('r-incometax').textContent = fmt(r.income_tax);
+        document.getElementById('r-reconstruction').textContent = fmt(r.reconstruction_tax);
+        document.getElementById('r-resident').textContent = fmt(r.resident_tax);
+        document.getElementById('r-business').textContent = fmt(r.business_tax);
+
+        const total = r.income_tax + r.reconstruction_tax + r.resident_tax + r.business_tax;
+        document.getElementById('r-total').textContent = fmt(total);
+
+        const rate = r.business_income > 0 ? (total / r.business_income * 100).toFixed(1) : '0.0';
+        document.getElementById('r-rate').textContent = `実効税率: ${rate}%`;
+
+        document.getElementById('results').style.display = 'block';
+      } catch (e) {
+        alert('計算エラー: ' + e);
+      }
+    };
+  </script>
+</body>
+</html>
