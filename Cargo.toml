@@ -1,10 +1,10 @@
 [package]
 name = "kaikei-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Japanese tax calculation library for sole proprietors (個人事業主向け税金計算)"
+description = "Japanese tax calculation library for sole proprietors and corporations (個人事業主・法人向け税金計算)"
 license = "MIT"
-repository = "https://github.com/Ryujiyasu/minnano-keiri"
+repository = "https://github.com/Ryujiyasu/kaikei-rs"
 keywords = ["tax", "japan", "accounting", "kaikei"]
 categories = ["finance"]
 
@@ -12,11 +12,3 @@ categories = ["finance"]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-wasm-bindgen = { version = "0.2", optional = true }
-
-[features]
-default = []
-wasm = ["wasm-bindgen"]
-
-[lib]
-crate-type = ["cdylib", "rlib"]

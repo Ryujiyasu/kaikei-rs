@@ -24,6 +24,3 @@
 //! ```
 
 pub mod tax;
-
-#[cfg(feature = "wasm")]
-pub mod wasm;
